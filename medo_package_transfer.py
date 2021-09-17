@@ -15,6 +15,10 @@ logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s: %(levelname)s - %(message)s',
                     datefmt=DATETIME_FORMAT)
 
+def write_main_error_to_file(exception_message):
+    with open('ERRORS.txt', 'a', encoding="utf8") as f:
+        now = datetime.now().strftime(DATETIME_FORMAT)
+        f.write("***" + now + "***\n" + exception_message + "\n")
 
 def get_config():
     config = configparser.ConfigParser()
@@ -70,18 +74,13 @@ def send_email(FROM, TO, email_server, message, *args):
     # server.starttls()
     # password = args[0]
     # server.login(msg['From'], password)
-    # send the message via the server.
+
     try:
         server.sendmail(msg['From'], msg['To'], msg.as_string())
     except:
-        raise("Не удалось отправить email")
+        raise Exception("Не удалось отправить email")
     finally:
         server.quit()
-
-def write_main_error_to_file(exception_message):
-    with open('ERRORS.txt', 'a', encoding="utf8") as f:
-        now = datetime.now().strftime(DATETIME_FORMAT)
-        f.write("***" + now + "***\n" + exception_message + "\n")
 
 
 def config_folders_check(source, destination, backup):
@@ -160,11 +159,13 @@ def is_pocket_valid(folder_path):
 
 
 def process_exception(error, folder, config, traceback):
+    # ошибки в консоль, общий лог, ERRORS.txt,email
+
     print("Ошибка на пакете {}".format(folder))
     print(error)
     message = "Ошибка на пакете {} \n{} \n{}".format(folder, error, traceback)
     logging.error(message)
-
+    write_main_error_to_file(traceback)
 
     if not config["mail"] is None:
         send_email(config["mail"]["from"],
@@ -220,27 +221,21 @@ def process_pockets(source_folders_list, config):
                 process_folder(folder, config)
                 logging.info("Успешно")
             else:
-                #pocket_not_valid(folder, config)
                 continue
         except Exception as err:
             process_exception(err, folder, config, traceback.format_exc())
-            write_main_error_to_file(traceback.format_exc())
-            # print(err.args)
-            # traceback.print_exc()
             continue
 
 
 def main():
     logging.debug("Старт")
     config = get_config()
-    # print(source_path, destination_path, backup_path, mail, log_enable)
     config_folders_check(config["source_path"], config["destination_path"], config["backup_path"])
     source_folders = get_source_folders_list(config["source_path"])
 
     if not source_folders is None:
         logging.debug("Найдено пакетов {}".format(len(source_folders)))
         process_pockets(source_folders, config)
-
     else:
         logging.debug("Найдено 0 пакетов")
 

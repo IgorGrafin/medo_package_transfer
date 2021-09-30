@@ -15,10 +15,6 @@ logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s: %(levelname)s - %(message)s',
                     datefmt=DATETIME_FORMAT)
 
-def write_main_error_to_file(exception_message):
-    with open('ERRORS.txt', 'a', encoding="utf8") as f:
-        now = datetime.now().strftime(DATETIME_FORMAT)
-        f.write("***" + now + "***\n" + exception_message + "\n")
 
 def get_config():
     config = configparser.ConfigParser()
@@ -63,10 +59,14 @@ def get_config():
     return config_dict
 
 def send_email(FROM, TO, email_server, message, *args):
+    logging.debug("отправляем почту")
+    logging.debug(FROM)
+    logging.debug(TO)
+    logging.debug(email_server)
     msg = MIMEMultipart()
     msg['From'] = FROM
     msg['To'] = TO
-    msg['Subject'] = "Test sending"
+    msg['Subject'] = "[ОШИБКА] Скрипт medo_package_mover"
     msg.attach(MIMEText(message, 'plain'))
     server = smtplib.SMTP(email_server)
 
@@ -74,13 +74,20 @@ def send_email(FROM, TO, email_server, message, *args):
     # server.starttls()
     # password = args[0]
     # server.login(msg['From'], password)
-
+    # send the message via the server.
     try:
+        logging.debug("пробуем отправить почту")
         server.sendmail(msg['From'], msg['To'], msg.as_string())
     except:
+        logging.debug("не удалось отправить почту =(")
         raise Exception("Не удалось отправить email")
     finally:
         server.quit()
+
+def write_main_error_to_file(exception_message):
+    with open('ERRORS.txt', 'a', encoding="utf8") as f:
+        now = datetime.now().strftime(DATETIME_FORMAT)
+        f.write("***" + now + "***\n" + exception_message + "\n")
 
 
 def config_folders_check(source, destination, backup):
@@ -95,7 +102,7 @@ def config_folders_check(source, destination, backup):
             raise Exception("не найдена директория backup_path {}".format(backup))
 
     if source == destination or source == backup or destination == backup:
-        raise Exception("найдены повторяющиеся директории в конфигурационном файле")
+       raise Exception("найдены повторяющиеся директории в конфигурационном файле")
 
 
 def get_source_folders_list(source_path):
@@ -113,7 +120,10 @@ def get_files_from_ini_file(info_file):
     except UnicodeDecodeError:
         # попался ini с utf8, можно вместо вызова исключения сделать ini.read(info_file, encoding="utf-8"),
         # но не факт, что это валидный пакет и его можно перекладывать. пока - исключение
-        raise Exception("неверная кодировка в ini-файле {}".format(info_file))
+        ini.read(info_file, encoding="utf-8")
+        # raise Exception("неверная кодировка в ini-файле {}".format(info_file))
+    except Exception:
+        raise Exception("некорректный ini/ltr файл")
 
     if ini.has_section("ФАЙЛЫ"):
         files_index = ini.options("ФАЙЛЫ")
@@ -159,17 +169,15 @@ def is_pocket_valid(folder_path):
 
 
 def process_exception(error, folder, config, traceback):
-    # ошибки в консоль, общий лог, ERRORS.txt,email
-
+    # ошибки в консоль, общий лог, ERRORS.txt, email
     print("Ошибка на пакете {}".format(folder))
     print(error)
     message = "Ошибка на пакете {} \n{} \n{}".format(folder, error, traceback)
     logging.error(message)
-    write_main_error_to_file(traceback)
-
     if not config["mail"] is None:
+        print("конфиг не пустой")
         send_email(config["mail"]["from"],
-                   config["mail"]["from"],
+                   config["mail"]["to"],
                    config["mail"]["server"],
                    message)
 
@@ -223,7 +231,9 @@ def process_pockets(source_folders_list, config):
             else:
                 continue
         except Exception as err:
+            logging.debug("перехват")
             process_exception(err, folder, config, traceback.format_exc())
+            write_main_error_to_file(traceback.format_exc())
             continue
 
 
@@ -232,10 +242,10 @@ def main():
     config = get_config()
     config_folders_check(config["source_path"], config["destination_path"], config["backup_path"])
     source_folders = get_source_folders_list(config["source_path"])
-
     if not source_folders is None:
         logging.debug("Найдено пакетов {}".format(len(source_folders)))
         process_pockets(source_folders, config)
+
     else:
         logging.debug("Найдено 0 пакетов")
 

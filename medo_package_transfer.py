@@ -111,17 +111,40 @@ def get_source_folders_list(source_path):
         return subfolders
     return None
 
+def get_text_without_whitespaces(info_file):
+    # попадались невалидные ini-файлы с пробелами в начале строк. удаляем их
+    with open(info_file) as f:
+        try:
+            line_lst = [line.lstrip() for line in f.readlines()]
+        except UnicodeDecodeError:
+            with open(info_file, encoding="utf-8") as f:
+                line_lst = [line.lstrip() for line in f.readlines()]
+        lines = ''.join(line_lst)
+    return lines
+
+
+def prepare_ini_text(info_file):
+    # предобработка информации из ini/ltr файлов из-за невалидности файлов
+    text = get_text_without_whitespaces(info_file)
+    return text
+
 
 def get_files_from_ini_file(info_file):
     ini = configparser.ConfigParser(allow_no_value=True)
-    try:
-        ini.read(info_file)
+    # try:
+    #     ini.read(info_file)
+    #
+    # except UnicodeDecodeError:
+    #     # пробуем utf8
+    #     ini.read(info_file, encoding="utf-8")
+    #     # raise Exception("неверная кодировка в ini-файле {}".format(info_file))
+    # except Exception:
+    #     raise Exception("некорректный ini/ltr файл")
 
-    except UnicodeDecodeError:
-        # попался ini с utf8, можно вместо вызова исключения сделать ini.read(info_file, encoding="utf-8"),
-        # но не факт, что это валидный пакет и его можно перекладывать. пока - исключение
-        ini.read(info_file, encoding="utf-8")
-        # raise Exception("неверная кодировка в ini-файле {}".format(info_file))
+    # FIX. невалидные ini файлы вызывают исключения в модуле ConfigParser. Откроем файл и подготовим текст к парсингу
+    try:
+        text = prepare_ini_text(info_file)
+        ini.read_string(text)
     except Exception:
         raise Exception("некорректный ini/ltr файл")
 
@@ -245,7 +268,6 @@ def main():
     if not source_folders is None:
         logging.debug("Найдено пакетов {}".format(len(source_folders)))
         process_pockets(source_folders, config)
-
     else:
         logging.debug("Найдено 0 пакетов")
 

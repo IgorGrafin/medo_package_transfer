@@ -126,7 +126,18 @@ def get_text_without_whitespaces(info_file):
 def prepare_ini_text(info_file):
     # предобработка информации из ini/ltr файлов из-за невалидности файлов
     text = get_text_without_whitespaces(info_file)
+    
     return text
+
+
+def is_identical(list_a, list_b):
+    if len(list_a) != len(list_b):
+        return False
+    if set(list_a) == set(list_b):
+        return True
+    else:
+        return False
+
 
 
 def get_files_from_ini_file(info_file):
@@ -148,22 +159,18 @@ def get_files_from_ini_file(info_file):
     except Exception:
         raise Exception("некорректный ini/ltr файл")
 
-    if ini.has_section("ФАЙЛЫ"):
-        files_index = ini.options("ФАЙЛЫ")
-        pocket_files = [os.path.split(ini.get("ФАЙЛЫ", i))[1] for i in ini.options("ФАЙЛЫ")]
-        return pocket_files
-    else:
+    if not ini.has_section("ФАЙЛЫ"):
         return None
 
+    pocket_files = [os.path.split(ini.get("ФАЙЛЫ", i))[1] for i in ini.options("ФАЙЛЫ")]
 
-def is_identical(list_a, list_b):
-    if len(list_a) != len(list_b):
-        return False
-    if set(list_a) == set(list_b):
-        return True
-    else:
-        return False
+    # в секции [ТЕКСТ] может быть ФАЙЛ=
+    if ini.has_section("ТЕКСТ"):
+        for key, item in ini.items("ТЕКСТ"):
+            if key.lower() == "файл":
+                pocket_files.append(item)
 
+    return pocket_files
 
 def lists_matched(folder_files, ini_files, ini_file_name):
     expected_files = ini_files.copy()
@@ -198,7 +205,6 @@ def process_exception(error, folder, config, traceback):
     message = "Ошибка на пакете {} \n{} \n{}".format(folder, error, traceback)
     logging.error(message)
     if not config["mail"] is None:
-        print("конфиг не пустой")
         send_email(config["mail"]["from"],
                    config["mail"]["to"],
                    config["mail"]["server"],

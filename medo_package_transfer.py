@@ -1,4 +1,5 @@
 import configparser, traceback, os, shutil, logging, smtplib
+from logging.handlers import RotatingFileHandler
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -9,9 +10,10 @@ DATE_FORMAT = "%Y-%m-%d"
 
 # TODO: вынести logging level в settings.ini; добавить handler с utf-8 и ротацией
 
-logging.basicConfig(level=logging.DEBUG,
-                    filename='app.log',
-                    filemode='a',
+logging.basicConfig(handlers=[RotatingFileHandler('./app.log', maxBytes=10000000, backupCount=2)],
+                    level=logging.DEBUG,
+                    # filename='app.log',
+                    # filemode='a',
                     format='%(asctime)s: %(levelname)s - %(message)s',
                     datefmt=DATETIME_FORMAT)
 
@@ -275,7 +277,7 @@ def main():
         logging.debug("Найдено пакетов {}".format(len(source_folders)))
         process_pockets(source_folders, config)
     else:
-        logging.debug("Найдено 0 пакетов")
+        logging.debug("Найдено пакетов 0")
 
 
 if __name__ == "__main__":

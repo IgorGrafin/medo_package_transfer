@@ -230,11 +230,33 @@ def do_backup(folder, backup_path):
         else:
             shutil.copy2(s, d)
 
+def move_file(source_path, destination_path, file_name):
+    source_file = os.path.join(source_path, file_name)
+    destination_file = os.path.join(destination_path, file_name)
+    logging.debug("Перемещаем файл в {}".format(destination_file))
+    shutil.move(source_file, destination_file)
+
 
 def move_folder(source, destination):
-    folder_name = os.path.split(source)[1]
-    backup_full_path = os.path.join(destination, folder_name)
-    shutil.move(source, backup_full_path)
+    logging.debug("Перемещаем файлы")
+    source_folder_name = os.path.split(source)[1]
+    dest_full_path = os.path.join(destination, source_folder_name)
+    if not os.path.exists(dest_full_path):
+        os.mkdir(dest_full_path)
+
+    for file in os.listdir(source):
+        if file.endswith(".ini") or file.endswith(".ltr"):
+            # ini/ltr перемещаем в конце
+            last_file_to_copy = file
+        else:
+            move_file(source, dest_full_path, file)
+
+    logging.debug("Перемещаем последний файл")
+    move_file(source, dest_full_path, last_file_to_copy)
+
+    if len(os.listdir(source)) == 0:
+        os.rmdir(source)
+
 
 
 def process_folder(folder, config):
@@ -242,12 +264,12 @@ def process_folder(folder, config):
         try:
             logging.debug("Выполнение бэкапа")
             do_backup(folder, config["backup_path"])
-        except:
+        except Exception:
             raise Exception("Не удалось сделать бекап папки {}".format(folder))
     try:
         logging.debug("Перемещение пакета")
         move_folder(folder, config["destination_path"])
-    except:
+    except Exception:
         raise Exception("Не удалось переместить папку {}".format(folder))
 
 
